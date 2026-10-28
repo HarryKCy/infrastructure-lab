@@ -1,0 +1,25 @@
+#cloud-config
+${yamlencode({
+  hostname = hostname
+  manage_etc_hosts = true
+  users = [{
+    name = "lab"
+    groups = ["adm", "sudo"]
+    shell = "/bin/bash"
+    lock_passwd = true
+    sudo = ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys = [public_key]
+  }]
+  disable_root = true
+  ssh_pwauth = false
+  package_update = true
+  packages = ["qemu-guest-agent"]
+  write_files = [{
+    path = "/etc/ssh/sshd_config.d/00-infrastructure-lab.conf"
+    owner = "root:root"
+    permissions = "0644"
+    content = "PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\nPubkeyAuthentication yes\n"
+  }]
+  runcmd = [["systemctl", "start", "qemu-guest-agent"], ["sshd", "-t"], ["systemctl", "reload", "ssh"]]
+  final_message = "Infrastructure Lab cloud-init finished after $UPTIME seconds; inspect cloud-init status --long."
+})}

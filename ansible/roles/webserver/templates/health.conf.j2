@@ -1,0 +1,10 @@
+server {
+    listen 80 default_server;
+    server_name _;
+    location = /health {
+        add_header X-Infrastructure-Lab-Node "{{ inventory_hostname }}" always;
+        default_type text/plain;
+        return 200 "Infrastructure Lab - OK\n";
+    }
+    location / { return 404; }
+}

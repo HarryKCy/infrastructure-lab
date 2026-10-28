@@ -1,0 +1,12 @@
+- import_playbook: guard.yml
+
+- name: Configure Linux baseline
+  hosts: lab
+  become: true
+  roles:
+    - common
+- name: Configure demonstration service
+  hosts: web
+  become: true
+  roles:
+    - webserver

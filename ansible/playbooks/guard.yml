@@ -1,0 +1,43 @@
+- name: Validate state ownership and effective inventory before guest access
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Require a local controller and SSH guest transport
+      ansible.builtin.assert:
+        that:
+          - "'localhost' not in groups.all"
+          - ansible_connection | default('local') == 'local'
+    - name: Compare private inventory with fresh UUID and guest-agent discovery
+      ansible.builtin.command:
+        argv:
+          - '{{ ansible_playbook_python }}'
+          - '{{ playbook_dir }}/../../scripts/lab.py'
+          - check-inventory
+      register: verified_inventory
+      changed_when: false
+    - name: Require exactly the verified lab and web groups
+      vars:
+        verified: '{{ verified_inventory.stdout | from_json }}'
+      ansible.builtin.assert:
+        that:
+          - groups.all | sort == verified.all.children.lab.hosts.keys() | list | sort
+          - groups.lab | sort == groups.all | sort
+          - groups.web | sort == verified.all.children.web.hosts.keys() | list | sort
+          - groups.keys() | list | difference(['all', 'ungrouped', 'lab', 'web']) | length == 0
+    - name: Reject overridden addresses, users, transports and SSH security settings
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].ansible_host == verified.all.children.lab.hosts[item].ansible_host
+          - hostvars[item].ansible_user == verified.all.vars.ansible_user
+          - hostvars[item].ansible_connection | default('ssh') == 'ssh'
+          - hostvars[item].ansible_port | default(22) | int == 22
+          - hostvars[item].ansible_ssh_common_args == verified.all.vars.ansible_ssh_common_args
+          - hostvars[item].ansible_ssh_extra_args | default('') == ''
+          - hostvars[item].ansible_ssh_args | default(expected_ssh_args) == expected_ssh_args
+          - hostvars[item].ansible_ssh_executable | default('ssh') == 'ssh'
+      loop: '{{ groups.all }}'
+      vars:
+        verified: '{{ verified_inventory.stdout | from_json }}'
+        expected_ssh_args: '-o ControlMaster=auto -o ControlPersist=60s -o StrictHostKeyChecking=yes'

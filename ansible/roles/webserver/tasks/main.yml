@@ -1,0 +1,36 @@
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+- name: Install health endpoint site
+  ansible.builtin.template:
+    src: health.conf.j2
+    dest: /etc/nginx/sites-available/default
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Validate and reload Nginx
+- name: Enable health endpoint site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/default
+    dest: /etc/nginx/sites-enabled/default
+    state: link
+  notify: Validate and reload Nginx
+- name: Start and enable Nginx
+  ansible.builtin.service:
+    name: nginx
+    enabled: true
+    state: started
+- name: Apply pending configuration
+  ansible.builtin.meta: flush_handlers
+- name: Check health endpoint in guest
+  ansible.builtin.uri:
+    url: http://127.0.0.1/health
+    return_content: true
+    use_proxy: false
+    follow_redirects: none
+    timeout: 10
+  register: health
+  failed_when: >-
+    health.status != 200 or health.content != 'Infrastructure Lab - OK\n' or
+    health.x_infrastructure_lab_node | default('') != inventory_hostname

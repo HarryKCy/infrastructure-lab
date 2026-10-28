@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars (ignored), then use your own public key.
+ssh_public_key_path = "../.local/ssh/lab.pub"
+# Printed by scripts/fetch-image.py; copy the authenticated digest here.
+image_sha256 = "REPLACE_WITH_AUTHENTICATED_SHA256"
+# Existing active resources, verified by preflight:
+storage_pool = "default"
+network_name = "default"

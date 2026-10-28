@@ -1,0 +1,42 @@
+- name: Verify expected guest OS and hostname
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.distribution_version == '24.04'
+      - ansible_facts.hostname == inventory_hostname
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name: [ca-certificates, curl, dnsutils, iproute2, iputils-ping, openssh-server, python3, sudo, systemd-timesyncd]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+- name: Preserve key-only administrative SSH
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/00-infrastructure-lab.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      PubkeyAuthentication yes
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reload SSH
+- name: Ensure SSH service is enabled
+  ansible.builtin.service:
+    name: ssh
+    state: started
+    enabled: true
+- name: Ensure time synchronization service is enabled
+  ansible.builtin.service:
+    name: systemd-timesyncd
+    state: started
+    enabled: true
+- name: Wait for time synchronization
+  ansible.builtin.command: timedatectl show --property=NTPSynchronized --value
+  register: clock_sync
+  changed_when: false
+  until: clock_sync.stdout == 'yes'
+  retries: 12
+  delay: 5
